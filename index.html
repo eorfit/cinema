@@ -1,13 +1,159 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React + TS</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+    <meta charset="UTF-8">
+    <title>Movie Seat Booking</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background: #222;
+            color: white;
+            padding: 20px;
+        }
+        select, button {
+            padding: 10px;
+            margin: 10px;
+            font-size: 16px;
+        }
+        .screening-time {
+            display: inline-block;
+            padding: 10px 15px;
+            margin: 10px;
+            background: #444;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .screening-time:hover {
+            background: #ffcc00;
+            color: black;
+        }
+        .seat {
+            display: inline-block;
+            width: 35px;
+            height: 35px;
+            margin: 5px;
+            background: #888;
+            color: white;
+            line-height: 35px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .seat.selected { background: green; }
+        .seat.booked { background: red; pointer-events: none; }
+        h3 { margin-top: 30px; }
+    </style>
+</head>
+<body>
+
+<h2>Movie Seat Booking</h2>
+<label>Select Date: </label>
+<select id="daySelector" onchange="updateScreenings()"></select>
+
+<div id="screenings"></div>
+<div id="seatSelection" style="display:none;"></div>
+
+<script>
+    const screenings = {
+        'Sunday': ["11:10", "13:35", "16:00", "18:25", "20:50", "22:15"],
+        'Monday': ["11:10", "13:35", "16:00", "18:25", "20:50", "22:15"],
+        'Tuesday': ["11:10", "13:35", "16:00", "18:25", "20:50", "22:15"],
+        'Wednesday': ["11:10", "13:35", "16:00", "18:25", "20:50", "22:15"],
+        'Thursday': ["10:45", "13:10", "15:35", "18:00", "20:25", "22:50"],
+        'Friday': ["09:30", "11:55", "14:20", "16:45", "19:15", "21:45"],
+        'Saturday': ["10:00", "12:25", "14:50", "17:15", "19:40", "22:05"]
+    };
+
+    const bookedSeats = JSON.parse(localStorage.getItem('bookedSeats')) || {};
+    let currentKey = '';
+
+    function populateDays() {
+        const selector = document.getElementById("daySelector");
+        const now = new Date();
+        for (let i = 0; i < 14; i++) {
+            let future = new Date();
+            future.setDate(now.getDate() + i);
+            let dayName = future.toLocaleDateString('en-US', { weekday: 'long' });
+            let option = document.createElement("option");
+            option.value = dayName;
+            option.textContent = `${dayName} (${future.toLocaleDateString()})`;
+            selector.appendChild(option);
+        }
+        updateScreenings();
+    }
+
+    function updateScreenings() {
+        const selector = document.getElementById("daySelector");
+        const day = selector.value;
+        const container = document.getElementById("screenings");
+        container.innerHTML = "";
+        document.getElementById("seatSelection").style.display = 'none';
+
+        const now = new Date();
+        const today = now.toLocaleDateString('en-US', { weekday: 'long' });
+
+        (screenings[day] || []).forEach((time, idx) => {
+            const theater = (idx % 2 === 0) ? 'Theater 1' : 'Theater 2';
+            if (day !== today || isFutureTime(time)) {
+                const div = document.createElement('div');
+                div.className = 'screening-time';
+                div.innerHTML = `${time} <br><small>${theater}</small>`;
+                div.onclick = () => selectSeats(day, time, theater);
+                container.appendChild(div);
+            }
+        });
+    }
+
+    function isFutureTime(timeStr) {
+        const [hour, min] = timeStr.split(':').map(Number);
+        const now = new Date();
+        return (hour > now.getHours()) || (hour === now.getHours() && min > now.getMinutes());
+    }
+
+    function selectSeats(day, time, theater) {
+        currentKey = `${day}-${time}-${theater}`;
+        const seatDiv = document.getElementById("seatSelection");
+        seatDiv.innerHTML = `<h3>Select seats for ${theater} at ${time}</h3>`;
+        seatDiv.style.display = 'block';
+        document.getElementById("screenings").innerHTML = '';
+
+        const layout = (theater === 'Theater 1') ? 
+            [[1,4], [5,9], [10,13], [14,17], [18,21]] :
+            [[1,4], [5,7], [8,11], [12,15], [16,19], [20,22], [23,26]];
+        
+        let container = document.createElement('div');
+        layout.forEach(range => {
+            for (let num = range[0]; num <= range[1]; num++) {
+                const seat = document.createElement('div');
+                seat.textContent = num;
+                seat.className = 'seat';
+                if ((bookedSeats[currentKey] || []).includes(num)) {
+                    seat.classList.add('booked');
+                } else {
+                    seat.onclick = () => toggleSeat(num, seat);
+                }
+                container.appendChild(seat);
+            }
+            container.appendChild(document.createElement('br'));
+        });
+        seatDiv.appendChild(container);
+    }
+
+    function toggleSeat(num, seatElement) {
+        if (!bookedSeats[currentKey]) bookedSeats[currentKey] = [];
+        const idx = bookedSeats[currentKey].indexOf(num);
+        if (idx > -1) {
+            bookedSeats[currentKey].splice(idx, 1);
+            seatElement.classList.remove('selected');
+        } else {
+            bookedSeats[currentKey].push(num);
+            seatElement.classList.add('selected');
+        }
+        localStorage.setItem('bookedSeats', JSON.stringify(bookedSeats));
+    }
+
+    populateDays();
+</script>
+
+</body>
 </html>
